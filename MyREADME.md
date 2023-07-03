@@ -190,6 +190,7 @@ opts.outdir_*
 и красио это будет сделать тут - namegen = FilenameGenerator(p, seed, prompt, image)
 проблема - где взять app и token ???
 пока не знаю
+еще есть идея - посмотреть в сторону - https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-custom-scripts
 
 
 class FilenameGenerator:
