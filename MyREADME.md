@@ -1,6 +1,10 @@
 Мои расследования - как сохранить пути для каждого пользователя
 ===============================================================
 
+http://0.0.0.0:8000/docs
+
+http://0.0.0.0:8000/redoc
+
 1. Пути хранятся в файле config.json
 2. нужно найти в коде строку - outdir_txt2img_samples
 3. и сделать замену подстроки %user% на имя текущего залогиненого пользователя
@@ -57,6 +61,65 @@ venv/lib/python3.11/site-packages/gradio/routes.py:165
             return {"token": token, "user": app.tokens.get(token)}
 
 
+        @app.websocket("/queue/join")
+        async def join_queue(
+            websocket: WebSocket,
+            token: Optional[str] = Depends(ws_login_check),
+        ):
+            blocks = app.get_blocks()
+            if app.auth is not None and token is None:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+            if blocks._queue.server_path is None:
+                app_url = get_server_url_from_ws_url(str(websocket.url))
+                blocks._queue.set_url(app_url)
+            await websocket.accept()
+            # In order to cancel jobs, we need the session_hash and fn_index
+            # to create a unique id for each job
+            try:
+                await asyncio.wait_for(
+                    websocket.send_json({"msg": "send_hash"}), timeout=5
+                )
+            except AsyncTimeOutError:
+                return
+
+            try:
+                session_info = await asyncio.wait_for(
+                    websocket.receive_json(), timeout=5
+                )
+            except AsyncTimeOutError:
+                return
+
+            event = Event(
+                websocket, session_info["session_hash"], session_info["fn_index"]
+            )
+            # set the token into Event to allow using the same token for call_prediction
+            event.token = token
+            event.session_hash = session_info["session_hash"]
+
+            # Continuous events are not put in the queue  so that they do not
+            # occupy the queue's resource as they are expected to run forever
+            if blocks.dependencies[event.fn_index].get("every", 0):
+                await cancel_tasks({f"{event.session_hash}_{event.fn_index}"})
+                await blocks._queue.reset_iterators(event.session_hash, event.fn_index)
+                task = run_coro_in_background(
+                    blocks._queue.process_events, [event], False
+                )
+                set_task_name(task, event.session_hash, event.fn_index, batch=False)
+            else:
+                rank = blocks._queue.push(event)
+
+                if rank is None:
+                    await blocks._queue.send_message(event, {"msg": "queue_full"})
+                    await event.disconnect()
+                    return
+                estimation = blocks._queue.get_estimation()
+                await blocks._queue.send_estimation(event, estimation, rank)
+            while True:
+                await asyncio.sleep(1)
+                if websocket.application_state == WebSocketState.DISCONNECTED:
+                    return
+
 modules/images.py:583
 
 os.makedirs
@@ -102,3 +165,15 @@ modules/api/api.py:330
 4)
 modules/ui.py:525
             txt2img_gallery, generation_info, html_info, html_log = create_output_panel("txt2img", opts.outdir_txt2img_samples)
+
+
+Промежуточные итоги расследования
+=================================
+
+1. Приложение загружается и сидит в памяти - предоставляет api
+2. app.tokens[token] - в этом массиве хранятся залогиненные пользователи
+3. opts - глобальная перемнная в нее при старте приложения загружаются пути из файла config.json
+4. При рендере - задача ставится в очередь через вебсокеты /queue/join
+5. Для получения текущего пользователя нужен экземпляр приложения - app и токен авторизации - token = app.tokens.get(token)
+6. Задача на рендеринг создается так:: task = run_coro_in_background(blocks._queue.process_events, [event], False)
+7. event содержит токен авторизации event.token
