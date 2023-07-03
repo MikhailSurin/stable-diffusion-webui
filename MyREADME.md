@@ -60,3 +60,13 @@ venv/lib/python3.11/site-packages/gradio/routes.py:165
 modules/images.py:583
 
 os.makedirs
+
+
+setup_middleware(app)
+
+
+modules/shared.py:708
+
+opts = Options()
+if os.path.exists(config_filename):
+    opts.load(config_filename)
