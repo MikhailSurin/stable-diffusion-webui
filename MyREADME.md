@@ -192,6 +192,13 @@ opts.outdir_*
 пока не знаю
 еще есть идея - посмотреть в сторону - https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-custom-scripts
 
+https://github.com/gradio-app/gradio/discussions/3630
+import gradio as gr
+def echo(name, request: gr.Request):
+    print("Username:", request.username)
+    return name
+io = gr.Interface(echo, "textbox", "textbox").launch()
+но как эту херню присобачить - пока не понятно!
 
 class FilenameGenerator:
     def get_vae_filename(self): #get the name of the VAE file.
