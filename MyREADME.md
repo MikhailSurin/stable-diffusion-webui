@@ -49,6 +49,14 @@ venv/lib/python3.11/site-packages/gradio/routes.py:165
                 raise HTTPException(status_code=400, detail="Incorrect credentials.")
 
 
+
+        @app.get("/token")
+        @app.get("/token/")
+        def get_token(request: fastapi.Request) -> dict:
+            token = request.cookies.get("access-token")
+            return {"token": token, "user": app.tokens.get(token)}
+
+
 modules/images.py:583
 
 os.makedirs
