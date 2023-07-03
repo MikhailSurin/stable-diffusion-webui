@@ -70,3 +70,35 @@ modules/shared.py:708
 opts = Options()
 if os.path.exists(config_filename):
     opts.load(config_filename)
+
+
+1)
+extensions/stable-diffusion-webui-images-browser/scripts/image_browser.py:103
+path_maps = {
+    "txt2img": opts.outdir_samples or opts.outdir_txt2img_samples,
+    "img2img": opts.outdir_samples or opts.outdir_img2img_samples,
+    "txt2img-grids": opts.outdir_grids or opts.outdir_txt2img_grids,
+    "img2img-grids": opts.outdir_grids or opts.outdir_img2img_grids,
+    "Extras": opts.outdir_samples or opts.outdir_extras_samples,
+    favorite_tab_name: opts.outdir_save
+}
+
+2)
+modules/txt2img.py:15
+    p = processing.StableDiffusionProcessingTxt2Img(
+        sd_model=shared.sd_model,
+        outpath_samples=opts.outdir_samples or opts.outdir_txt2img_samples,
+        outpath_grids=opts.outdir_grids or opts.outdir_txt2img_grids,
+
+
+3)
+modules/api/api.py:330
+        with self.queue_lock:
+            p = StableDiffusionProcessingTxt2Img(sd_model=shared.sd_model, **args)
+            p.scripts = script_runner
+            p.outpath_grids = opts.outdir_txt2img_grids
+            p.outpath_samples = opts.outdir_txt2img_samples
+
+4)
+modules/ui.py:525
+            txt2img_gallery, generation_info, html_info, html_log = create_output_panel("txt2img", opts.outdir_txt2img_samples)
