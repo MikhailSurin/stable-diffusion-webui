@@ -177,3 +177,94 @@ modules/ui.py:525
 5. Для получения текущего пользователя нужен экземпляр приложения - app и токен авторизации - token = app.tokens.get(token)
 6. Задача на рендеринг создается так:: task = run_coro_in_background(blocks._queue.process_events, [event], False)
 7. event содержит токен авторизации event.token
+
+Наброски решения
+~~~~~~~~~~~~~~~~
+написать функции - в своем модуле user_config.py
+get_outdir_*(app, token)
+заменить вызовы
+opts.outdir_*
+на user_config.get_outdir_*(app, token)
+
+проблема - где взять app и token
+и красио это будет сделать тут - namegen = FilenameGenerator(p, seed, prompt, image)
+проблема - где взять app и token
+
+
+class FilenameGenerator:
+    def get_vae_filename(self): #get the name of the VAE file.
+        if sd_vae.loaded_vae_file is None:
+            return "NoneType"
+        file_name = os.path.basename(sd_vae.loaded_vae_file)
+        split_file_name = file_name.split('.')
+        if len(split_file_name) > 1 and split_file_name[0] == '':
+            return split_file_name[1] # if the first character of the filename is "." then [1] is obtained.
+        else:
+            return split_file_name[0]
+
+    replacements = {
+        'seed': lambda self: self.seed if self.seed is not None else '',
+        'seed_first': lambda self: self.seed if self.p.batch_size == 1 else self.p.all_seeds[0],
+        'seed_last': lambda self: NOTHING_AND_SKIP_PREVIOUS_TEXT if self.p.batch_size == 1 else self.p.all_seeds[-1],
+        'steps': lambda self:  self.p and self.p.steps,
+        'cfg': lambda self: self.p and self.p.cfg_scale,
+        'width': lambda self: self.image.width,
+        'height': lambda self: self.image.height,
+        'styles': lambda self: self.p and sanitize_filename_part(", ".join([style for style in self.p.styles if not style == "None"]) or "None", replace_spaces=False),
+        'sampler': lambda self: self.p and sanitize_filename_part(self.p.sampler_name, replace_spaces=False),
+        'model_hash': lambda self: getattr(self.p, "sd_model_hash", shared.sd_model.sd_model_hash),
+        'model_name': lambda self: sanitize_filename_part(shared.sd_model.sd_checkpoint_info.model_name, replace_spaces=False),
+        'date': lambda self: datetime.datetime.now().strftime('%Y-%m-%d'),
+        'datetime': lambda self, *args: self.datetime(*args),  # accepts formats: [datetime], [datetime<Format>], [datetime<Format><Time Zone>]
+        'job_timestamp': lambda self: getattr(self.p, "job_timestamp", shared.state.job_timestamp),
+        'prompt_hash': lambda self: hashlib.sha256(self.prompt.encode()).hexdigest()[0:8],
+        'prompt': lambda self: sanitize_filename_part(self.prompt),
+        'prompt_no_styles': lambda self: self.prompt_no_style(),
+        'prompt_spaces': lambda self: sanitize_filename_part(self.prompt, replace_spaces=False),
+        'prompt_words': lambda self: self.prompt_words(),
+        'batch_number': lambda self: NOTHING_AND_SKIP_PREVIOUS_TEXT if self.p.batch_size == 1 or self.zip else self.p.batch_index + 1,
+        'batch_size': lambda self: self.p.batch_size,
+        'generation_number': lambda self: NOTHING_AND_SKIP_PREVIOUS_TEXT if (self.p.n_iter == 1 and self.p.batch_size == 1) or self.zip else self.p.iteration * self.p.batch_size + self.p.batch_index + 1,
+        'hasprompt': lambda self, *args: self.hasprompt(*args),  # accepts formats:[hasprompt<prompt1|default><prompt2>..]
+        'clip_skip': lambda self: opts.data["CLIP_stop_at_last_layers"],
+        'denoising': lambda self: self.p.denoising_strength if self.p and self.p.denoising_strength else NOTHING_AND_SKIP_PREVIOUS_TEXT,
+        'vae_filename': lambda self: self.get_vae_filename(),
+
+    }
+
+
+
+def save_image(image, path, basename, seed=None, prompt=None, extension='png', info=None, short_filename=False, no_prompt=False, grid=False, pnginfo_section_name='parameters', p=None, existing_info=None, forced_filename=None, suffix="", save_to_dirs=None):
+    """Save an image.
+
+    Args:
+        image (`PIL.Image`):
+            The image to be saved.
+        path (`str`):
+            The directory to save the image. Note, the option `save_to_dirs` will make the image to be saved into a sub directory.
+        basename (`str`):
+            The base filename which will be applied to `filename pattern`.
+        seed, prompt, short_filename,
+        extension (`str`):
+            Image file extension, default is `png`.
+        pngsectionname (`str`):
+            Specify the name of the section which `info` will be saved in.
+        info (`str` or `PngImagePlugin.iTXt`):
+            PNG info chunks.
+        existing_info (`dict`):
+            Additional PNG info. `existing_info == {pngsectionname: info, ...}`
+        no_prompt:
+            TODO I don't know its meaning.
+        p (`StableDiffusionProcessing`)
+        forced_filename (`str`):
+            If specified, `basename` and filename pattern will be ignored.
+        save_to_dirs (bool):
+            If true, the image will be saved into a subdirectory of `path`.
+
+    Returns: (fullfn, txt_fullfn)
+        fullfn (`str`):
+            The full path of the saved imaged.
+        txt_fullfn (`str` or None):
+            If a text file is saved for this image, this will be its full path. Otherwise None.
+    """
+    namegen = FilenameGenerator(p, seed, prompt, image)
