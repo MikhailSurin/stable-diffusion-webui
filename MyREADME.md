@@ -188,7 +188,8 @@ opts.outdir_*
 
 проблема - где взять app и token
 и красио это будет сделать тут - namegen = FilenameGenerator(p, seed, prompt, image)
-проблема - где взять app и token
+проблема - где взять app и token ???
+пока не знаю
 
 
 class FilenameGenerator:
