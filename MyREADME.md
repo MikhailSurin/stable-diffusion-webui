@@ -299,4 +299,4 @@ def save_image(image, path, basename, seed=None, prompt=None, extension='png', i
 
 https://gradio.app/state-in-blocks/
 
-бля - Gradio ГАМНО!!!
+бля - Gradio ГАВНО!!!
