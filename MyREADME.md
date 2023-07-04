@@ -178,6 +178,9 @@ modules/ui.py:525
 6. Задача на рендеринг создается так:: task = run_coro_in_background(blocks._queue.process_events, [event], False)
 7. event содержит токен авторизации event.token
 
+https://gradio.app/using-blocks-like-functions/
+
+
 Наброски решения
 ~~~~~~~~~~~~~~~~
 написать функции - в своем модуле user_config.py
@@ -277,3 +280,23 @@ def save_image(image, path, basename, seed=None, prompt=None, extension='png', i
             If a text file is saved for this image, this will be its full path. Otherwise None.
     """
     namegen = FilenameGenerator(p, seed, prompt, image)
+
+
+    @staticmethod
+    def msg_to_status(msg: str) -> Status:
+        """Map the raw message from the backend to the status code presented to users."""
+        return {
+            "send_hash": Status.JOINING_QUEUE,
+            "queue_full": Status.QUEUE_FULL,
+            "estimation": Status.IN_QUEUE,
+            "send_data": Status.SENDING_DATA,
+            "process_starts": Status.PROCESSING,
+            "process_generating": Status.ITERATING,
+            "process_completed": Status.FINISHED,
+            "progress": Status.PROGRESS,
+        }[msg]
+
+
+https://gradio.app/state-in-blocks/
+
+бля - Gradio ГАМНО!!!
